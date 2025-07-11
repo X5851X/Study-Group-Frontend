@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchGroups, createGroup, updateGroup, deleteGroup, clearError } from '../redux/groupSlice';
+import axios from 'axios';
 import '../styles/dashboard.css';
 
 const Dashboard = () => {
@@ -30,8 +31,10 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    dispatch(fetchGroups());
-  }, [dispatch]);
+    if (user) {
+      dispatch(fetchGroups());
+    }
+  }, [dispatch, user]);
 
   useEffect(() => {
     if (error) {
@@ -98,6 +101,7 @@ const Dashboard = () => {
       setShowCreateForm(false);
       showPopup('success', 'Success', 'Group created successfully!');
     } catch (error) {
+      console.error('Create group error:', error);
       showPopup('error', 'Error', error.message || 'Failed to create group');
     }
   };
@@ -136,6 +140,7 @@ const Dashboard = () => {
       setSelectedGroup(null);
       showPopup('success', 'Success', 'Group updated successfully!');
     } catch (error) {
+      console.error('Update group error:', error);
       showPopup('error', 'Error', error.message || 'Failed to update group');
     }
   };
@@ -147,6 +152,7 @@ const Dashboard = () => {
       setSelectedGroup(null);
       showPopup('success', 'Success', 'Group deleted successfully!');
     } catch (error) {
+      console.error('Delete group error:', error);
       showPopup('error', 'Error', error.message || 'Failed to delete group');
     }
   };
@@ -188,6 +194,17 @@ const Dashboard = () => {
   const cancelDelete = () => {
     setConfirmDelete({ isOpen: false, groupId: null, groupName: '' });
   };
+
+  // Auto-close popup after delay
+  useEffect(() => {
+    if (popup.isOpen && (popup.type === 'success' || popup.type === 'info')) {
+      const timer = setTimeout(() => {
+        closePopup();
+      }, popup.type === 'success' ? 3000 : 4000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [popup.isOpen, popup.type]);
 
   return (
     <div className="dashboard">

@@ -1,151 +1,75 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axios from 'axios';
 
-const API_URL = import.meta.env.BACKEND_URL || 'http://localhost:5000';
+// Configure axios defaults
+axios.defaults.baseURL = 'http://localhost:5000';
+axios.defaults.withCredentials = true;
 
-const getAuthToken = (getState) => {
-  const { user } = getState();
-  return user?.token || localStorage.getItem('token');
-};
-
+// Async thunks for API calls
 export const fetchGroups = createAsyncThunk(
   'groups/fetchGroups',
-  async (_, { getState, rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const token = getAuthToken(getState);
-      const response = await fetch(`${API_URL}/groups`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch groups');
-      }
-
-      return await response.json();
+      const response = await axios.get('/groups');
+      return response.data;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to fetch groups'
+      );
     }
   }
 );
 
 export const createGroup = createAsyncThunk(
   'groups/createGroup',
-  async (groupData, { getState, rejectWithValue }) => {
+  async (groupData, { rejectWithValue }) => {
     try {
-      const token = getAuthToken(getState);
-
-      const response = await fetch(`${API_URL}/groups`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(groupData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create group');
-      }
-
-      return await response.json();
+      const response = await axios.post('/groups', groupData);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to create group'
+      );
     }
   }
 );
 
 export const updateGroup = createAsyncThunk(
   'groups/updateGroup',
-  async ({ id, data }, { getState, rejectWithValue }) => {
+  async ({ id, data }, { rejectWithValue }) => {
     try {
-      const token = getAuthToken(getState);
-
-      const response = await fetch(`${API_URL}/groups/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(data)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update group');
-      }
-
-      return await response.json();
+      const response = await axios.put(`/groups/${id}`, data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to update group'
+      );
     }
   }
 );
 
 export const deleteGroup = createAsyncThunk(
   'groups/deleteGroup',
-  async (groupId, { getState, rejectWithValue }) => {
+  async (groupId, { rejectWithValue }) => {
     try {
-      const token = getAuthToken(getState);
-
-      const response = await fetch(`${API_URL}/groups/${groupId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete group');
-      }
-
-      const data = await response.json();
-      return { groupId, message: data.message };
+      await axios.delete(`/groups/${groupId}`);
+      return groupId;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to delete group'
+      );
     }
   }
 );
 
-export const fetchGroupById = createAsyncThunk(
-  'groups/fetchGroupById',
-  async (groupId, { getState, rejectWithValue }) => {
-    try {
-      const token = getAuthToken(getState);
-
-      const response = await fetch(`${API_URL}/groups/${groupId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch group');
-      }
-
-      return await response.json();
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
+// Initial state
 const initialState = {
   groups: [],
-  currentGroup: null,
   loading: false,
-  error: null
+  error: null,
 };
 
+// Create slice
 const groupSlice = createSlice({
   name: 'groups',
   initialState,
@@ -153,15 +77,13 @@ const groupSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
-    clearCurrentGroup: (state) => {
-      state.currentGroup = null;
+    setLoading: (state, action) => {
+      state.loading = action.payload;
     },
-    setCurrentGroup: (state, action) => {
-      state.currentGroup = action.payload;
-    }
   },
   extraReducers: (builder) => {
     builder
+      // Fetch groups
       .addCase(fetchGroups.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -169,25 +91,29 @@ const groupSlice = createSlice({
       .addCase(fetchGroups.fulfilled, (state, action) => {
         state.loading = false;
         state.groups = action.payload;
+        state.error = null;
       })
       .addCase(fetchGroups.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
-
+      
+      // Create group
       .addCase(createGroup.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(createGroup.fulfilled, (state, action) => {
         state.loading = false;
-        state.groups.unshift(action.payload);
+        state.groups.push(action.payload);
+        state.error = null;
       })
       .addCase(createGroup.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
-
+      
+      // Update group
       .addCase(updateGroup.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -198,49 +124,29 @@ const groupSlice = createSlice({
         if (index !== -1) {
           state.groups[index] = action.payload;
         }
-        if (state.currentGroup && state.currentGroup._id === action.payload._id) {
-          state.currentGroup = action.payload;
-        }
+        state.error = null;
       })
       .addCase(updateGroup.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
-
+      
+      // Delete group
       .addCase(deleteGroup.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(deleteGroup.fulfilled, (state, action) => {
         state.loading = false;
-        state.groups = state.groups.filter(group => group._id !== action.payload.groupId);
-        if (state.currentGroup && state.currentGroup._id === action.payload.groupId) {
-          state.currentGroup = null;
-        }
+        state.groups = state.groups.filter(group => group._id !== action.payload);
+        state.error = null;
       })
       .addCase(deleteGroup.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      })
-
-      .addCase(fetchGroupById.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchGroupById.fulfilled, (state, action) => {
-        state.loading = false;
-        state.currentGroup = action.payload;
-        const index = state.groups.findIndex(group => group._id === action.payload._id);
-        if (index !== -1) {
-          state.groups[index] = action.payload;
-        }
-      })
-      .addCase(fetchGroupById.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
       });
-  }
+  },
 });
 
-export const { clearError, clearCurrentGroup, setCurrentGroup } = groupSlice.actions;
+export const { clearError, setLoading } = groupSlice.actions;
 export default groupSlice.reducer;
